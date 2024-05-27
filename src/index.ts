@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "./prismaClient";
 import express, { Request, Response } from "express";
 import createError from "http-errors";
+import { scheduleBirthdayMessages } from "./scheduler";
 
-const prisma = new PrismaClient();
 const app = express();
 
 app.use(express.json());
@@ -60,6 +60,8 @@ app.put("/user/:id", async (req, res) => {
     res.status(404).send({ error: "User not found" });
   }
 });
+
+scheduleBirthdayMessages();
 
 // handle 404 error
 app.use((req: Request, res: Response, next: Function) => {

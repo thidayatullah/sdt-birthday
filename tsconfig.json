@@ -1,9 +1,22 @@
+// {
+//   "compilerOptions": {
+//     "sourceMap": true,
+//     "outDir": "dist",
+//     "strict": true,
+//     "lib": ["esnext"],
+//     "esModuleInterop": true
+//   }
+// }
 {
   "compilerOptions": {
-    "sourceMap": true,
-    "outDir": "dist",
+    "target": "ES6",
+    "module": "commonjs",
     "strict": true,
-    "lib": ["esnext"],
-    "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
 }
