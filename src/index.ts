@@ -8,29 +8,38 @@ const app = express();
 app.use(express.json());
 
 app.post("/user", async (req: Request, res: Response) => {
-  const { firstName, lastName, email, birthday, timeZone } = req.body;
+  const { birthday } = req.body;
+  const birthdayDate = new Date(birthday);
   try {
     const user = await prisma.user.create({
       data: {
-        firstName,
-        lastName,
-        email,
-        birthday: new Date(birthday),
-        timeZone,
+        ...req.body,
+        birthday: birthdayDate,
       },
     });
 
-    const birthdayDate = new Date(birthday);
     const today = new Date();
+    const thisYearBirthday = new Date(
+      today.getFullYear(),
+      birthdayDate.getMonth(),
+      birthdayDate.getDate()
+    );
+    const nextBirthday = new Date(
+      today.getFullYear() + 1,
+      birthdayDate.getMonth(),
+      birthdayDate.getDate()
+    );
+    let isBirthdayPassed = thisYearBirthday <= today;
+    console.log(thisYearBirthday);
+    console.log(today);
+    console.log(thisYearBirthday > today);
+    console.log(thisYearBirthday < today);
+
     await prisma.message.create({
       data: {
         userID: user.id,
         messageType: "birthday",
-        schedule: new Date(
-          today.getFullYear(),
-          birthdayDate.getMonth(),
-          birthdayDate.getDate()
-        ),
+        schedule: isBirthdayPassed ? nextBirthday : thisYearBirthday,
         status: "not triggered",
       },
     });
@@ -48,22 +57,29 @@ app.post("/user", async (req: Request, res: Response) => {
 app.put("/user/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
   const { birthday } = req.body;
-  const birthdayDate = new Date(birthday);
-  const today = new Date();
+
   try {
     const user = await prisma.user.update({
       where: { id: parseInt(id) },
       data: {
         ...req.body,
-        birthday: birthday
-          ? new Date(
-              today.getFullYear(),
-              birthdayDate.getMonth(),
-              birthdayDate.getDate()
-            )
-          : undefined,
+        birthday: birthday ? birthday : undefined,
       },
     });
+
+    const birthdayDate = new Date(birthday);
+    const today = new Date();
+    const thisYearBirthday = new Date(
+      today.getFullYear(),
+      birthdayDate.getMonth(),
+      birthdayDate.getDate()
+    );
+    const nextBirthday = new Date(
+      today.getFullYear() + 1,
+      birthdayDate.getMonth(),
+      birthdayDate.getDate()
+    );
+    let isBirthdayPassed = thisYearBirthday <= today;
 
     const message = await prisma.message.findFirst({
       where: { userID: user.id },
@@ -74,7 +90,7 @@ app.put("/user/:id", async (req: Request, res: Response) => {
     ) {
       await prisma.message.update({
         where: { id: message.id },
-        data: { schedule: new Date(birthday) },
+        data: { schedule: isBirthdayPassed ? nextBirthday : thisYearBirthday },
       });
     }
 
