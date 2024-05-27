@@ -57,17 +57,16 @@ app.post("/user", async (req: Request, res: Response) => {
 app.put("/user/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
   const { birthday } = req.body;
-
+  const birthdayDate = new Date(birthday);
   try {
     const user = await prisma.user.update({
       where: { id: parseInt(id) },
       data: {
         ...req.body,
-        birthday: birthday ? birthday : undefined,
+        birthday: birthday ? birthdayDate : undefined,
       },
     });
 
-    const birthdayDate = new Date(birthday);
     const today = new Date();
     const thisYearBirthday = new Date(
       today.getFullYear(),
@@ -97,7 +96,7 @@ app.put("/user/:id", async (req: Request, res: Response) => {
     res.status(200).send(user);
   } catch (error: unknown) {
     if (error instanceof Error) {
-      res.status(404).send({ error: "User not found" });
+      res.status(404).send({ error: error.message });
     } else {
       res.status(400).send({ error: "An unknown error occurred" });
     }
