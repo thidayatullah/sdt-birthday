@@ -14,11 +14,22 @@ datasource db {
 }
 
 model User {
-  id Int @default(autoincrement()) @id
-  userName   String  @unique
-  email      String   @unique
-  firstName  String
-  lastName   String  
-  birthday   DateTime
-  location   String
+  id        Int      @id @default(autoincrement())
+  firstName String
+  lastName  String
+  email     String   @unique
+  birthday  DateTime
+  timeZone  String
+  messages  Message[]
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  userID      Int
+  messageType String
+  schedule    DateTime
+  status      String
+  user        User     @relation(fields: [userID], references: [id])
+
+  @@index([userID])
 }

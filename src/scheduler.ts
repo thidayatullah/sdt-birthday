@@ -15,61 +15,84 @@ type userModel = {
   birthday?: Date;
   location?: string;
 };
-
-async function sendEmail(email: string, message: string) {
+async function sendEmail(
+  email: string,
+  message: string,
+  messageID: number,
+  schedule: Date
+) {
   try {
     await axios.post(EMAIL_API_URL, { email, message });
     console.log(`Email sent to ${email}`);
-    return true;
+    const nextYearSchedule = new Date(schedule);
+    nextYearSchedule.setFullYear(nextYearSchedule.getFullYear() + 1);
+
+    await prisma.message.update({
+      where: { id: messageID },
+      data: { status: "success", schedule: nextYearSchedule },
+    });
   } catch (error) {
     if (error instanceof Error) {
       console.error(`Error sending email to ${email}: ${error.message}`);
-    } else {
-      console.error(
-        `Error sending email to ${email}: An unknown error occured`
-      );
     }
-
-    return false;
+    await prisma.message.update({
+      where: { id: messageID },
+      data: { status: "failed" },
+    });
   }
 }
 
-export async function sendBirthdayMessage(user: userModel) {
-  const message = `Hey, ${user.firstName} ${user.lastName} it’s your birthday`;
-  const success = await sendEmail(user.email, message);
-  if (!success) {
-    console.log(`Failed to send message to ${user.email}. It will be retried.`);
-    // Implement retry or save logic here
-  }
+async function sendBirthdayMessage(message: any, user: any) {
+  const birthdayMessage = `Hey, ${user.firstName} ${user.lastName} it’s your birthday`;
+  await sendEmail(user.email, birthdayMessage, message.id, message.schedule);
 }
 
-export async function scheduleBirthdayMessages() {
-  const users = await prisma.user.findMany();
+async function scheduleBirthdayMessages(message: any, user: any) {
+  const cronTime = `0 9 ${message.schedule.getDate()} ${
+    message.schedule.getMonth() + 1
+  } *`;
 
-  users.forEach((user) => {
-    const now = moment().tz(user.location);
-    const birthday = moment(user.birthday).tz(user.location).year(now.year());
+  //FOR TESTING
+  //   const cronTime = `* * ${message.schedule.getDate()} ${
+  //     message.schedule.getMonth() + 1
+  //   } *`;
 
-    if (birthday.isBefore(now)) {
-      birthday.add(1, "year");
+  cron.schedule(
+    cronTime,
+    async () => {
+      await sendBirthdayMessage(message, user);
+    },
+    {
+      scheduled: true,
+      timezone: user.timeZone,
     }
+  );
 
-    // const cronTime = `0 9 ${birthday.date()} ${birthday.month() + 1} *`;
-    const cronTime = `* * * * *`;
+  console.log(`Scheduled birthday message for ${user.email} on ${cronTime}`);
+}
 
-    cron.schedule(
-      cronTime,
-      async () => {
-        await sendBirthdayMessage(user);
+export async function scheduleDailyMessages() {
+  cron.schedule("0 0 * * *", async () => {
+    //   cron.schedule("* * * * *", async () => { /*FOR TESTING*/
+    const messages = await prisma.message.findMany({
+      where: {
+        schedule: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lt: new Date(new Date().setHours(23, 59, 59, 999)),
+        },
+        status: {
+          not: "success",
+        },
       },
-      {
-        scheduled: true,
-        timezone: user.location,
+    });
+    console.log(messages);
+    for (const message of messages) {
+      const user = await prisma.user.findUnique({
+        where: { id: message.userID },
+      });
+      if (user) {
+        await scheduleBirthdayMessages(message, user);
       }
-    );
-
-    console.log(
-      `Scheduled birthday message for ${user.email} on ${birthday.format()}`
-    );
+    }
   });
 }
