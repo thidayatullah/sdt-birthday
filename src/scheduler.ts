@@ -1,6 +1,6 @@
 // src/scheduler.ts
 import prisma from "./prismaClient";
-import cron from "node-cron";
+import schedule from "node-schedule";
 import moment from "moment-timezone";
 import axios from "axios";
 
@@ -47,33 +47,36 @@ async function sendBirthdayMessage(message: any, user: any) {
   await sendEmail(user.email, birthdayMessage, message.id, message.schedule);
 }
 
-async function scheduleBirthdayMessages(message: any, user: any) {
-  const cronTime = `0 9 ${message.schedule.getDate()} ${
-    message.schedule.getMonth() + 1
-  } *`;
+export function scheduleBirthdayMessages(message: any, user: any) {
+  const jobName = `${user.id}-birthday`;
+  const scheduleDate = new Date(message.schedule);
+  scheduleDate.setHours(9, 0, 0, 0); // Schedule for 9 AM
 
-  //FOR TESTING
-  //   const cronTime = `* * ${message.schedule.getDate()} ${
-  //     message.schedule.getMonth() + 1
-  //   } *`;
+  // Cancel any existing job with the same name
+  const existingJob = schedule.scheduledJobs[jobName];
+  if (existingJob) {
+    existingJob.cancel();
+  }
 
-  cron.schedule(
-    cronTime,
-    async () => {
-      await sendBirthdayMessage(message, user);
-    },
-    {
-      scheduled: true,
-      timezone: user.timeZone,
-    }
-  );
+  // Schedule the new job
+  schedule.scheduleJob(jobName, scheduleDate, async () => {
+    await sendBirthdayMessage(message, user);
+  });
 
-  console.log(`Scheduled birthday message for ${user.email} on ${cronTime}`);
+  console.log(`Scheduled job ${jobName} for ${scheduleDate}`);
+}
+
+export async function deleteOldSchedule(jobName: string) {
+  const existingJob = schedule.scheduledJobs[jobName];
+  if (existingJob) {
+    existingJob.cancel();
+    console.log(`Deleted old schedule job ${jobName}`);
+  }
 }
 
 export async function scheduleDailyMessages() {
-  cron.schedule("0 0 * * *", async () => {
-    //   cron.schedule("* * * * *", async () => { /*FOR TESTING*/
+  console.log(new Date(new Date().setHours(23, 59, 59, 999)));
+  schedule.scheduleJob("0 0 * * *", async () => {
     const messages = await prisma.message.findMany({
       where: {
         schedule: {
@@ -98,8 +101,7 @@ export async function scheduleDailyMessages() {
 }
 
 export async function scheduleHourlyRetry() {
-  cron.schedule("0 * * * *", async () => {
-    //   cron.schedule("30 * * * * *", async () => { /*FOR TESTING*/
+  schedule.scheduleJob("0 * * * *", async () => {
     const messages = await prisma.message.findMany({
       where: {
         schedule: {
