@@ -1,7 +1,7 @@
 import prisma from "./prismaClient";
 import express, { Request, Response } from "express";
 import createError from "http-errors";
-import { scheduleDailyMessages } from "./scheduler";
+import { scheduleDailyMessages, scheduleHourlyRetry } from "./scheduler";
 
 const app = express();
 
@@ -124,6 +124,7 @@ app.use((req: Request, res: Response, next: Function) => {
 });
 
 scheduleDailyMessages();
+scheduleHourlyRetry();
 
 const port = 3000;
 app.listen(port, () => {

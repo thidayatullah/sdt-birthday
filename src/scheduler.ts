@@ -25,11 +25,11 @@ async function sendEmail(
     await axios.post(EMAIL_API_URL, { email, message });
     console.log(`Email sent to ${email}`);
     const nextYearSchedule = new Date(schedule);
-    nextYearSchedule.setFullYear(nextYearSchedule.getFullYear() + 1);
+    nextYearSchedule.setFullYear(new Date().getFullYear() + 1);
 
     await prisma.message.update({
       where: { id: messageID },
-      data: { status: "success", schedule: nextYearSchedule },
+      data: { status: "not triggered", schedule: nextYearSchedule },
     });
   } catch (error) {
     if (error instanceof Error) {
@@ -92,6 +92,31 @@ export async function scheduleDailyMessages() {
       });
       if (user) {
         await scheduleBirthdayMessages(message, user);
+      }
+    }
+  });
+}
+
+export async function scheduleHourlyRetry() {
+  cron.schedule("0 * * * *", async () => {
+    //   cron.schedule("30 * * * * *", async () => { /*FOR TESTING*/
+    const messages = await prisma.message.findMany({
+      where: {
+        schedule: {
+          lt: new Date(new Date().setHours(23, 59, 59, 999)),
+        },
+        status: {
+          not: "success",
+        },
+      },
+    });
+    console.log(messages);
+    for (const message of messages) {
+      const user = await prisma.user.findUnique({
+        where: { id: message.userID },
+      });
+      if (user) {
+        await sendBirthdayMessage(message, user);
       }
     }
   });
